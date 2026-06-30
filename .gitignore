@@ -1,0 +1,9 @@
+node_modules/
+npm-debug.log*
+.env
+.DS_Store
+Thumbs.db
+
+# Uploaded photos are user data. Keep them on the server disk, not in Git.
+uploads/*
+!uploads/.gitkeep

@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>光影相册 | 个人照片分享</title>
+    <link rel="preconnect" href="https://images.unsplash.com">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="nav" aria-label="主导航">
+        <a class="brand" href="#top" aria-label="回到首页">
+          <span class="brand-mark"></span>
+          <span>光影相册</span>
+        </a>
+        <div class="nav-links">
+          <a href="#gallery">照片</a>
+          <a href="#about">关于</a>
+        </div>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero" aria-labelledby="hero-title">
+        <picture>
+          <source
+            media="(max-width: 760px)"
+            srcset="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80">
+          <img
+            src="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1800&q=82"
+            alt="山谷、湖水与远处晨光组成的风景照片">
+        </picture>
+        <div class="hero-copy">
+          <p class="eyebrow">Personal Photo Gallery</p>
+          <h1 id="hero-title">把生活里的光，整理成可以回看的地方。</h1>
+          <p class="hero-text">一次可以上传单张或多张照片，上传后还能给照片改名、添加分类标签，再按标签重新整理浏览。</p>
+          <div class="hero-actions">
+            <a class="button primary" href="#gallery">浏览照片</a>
+            <label class="button secondary" for="photo-upload">上传照片</label>
+          </div>
+        </div>
+      </section>
+
+      <section class="toolbar" aria-label="照片筛选工具">
+        <div>
+          <p class="section-kicker">Gallery</p>
+          <h2>照片库</h2>
+        </div>
+        <div class="controls" role="group" aria-label="按分类标签筛选照片">
+          <button class="filter active" type="button" data-filter="all">全部</button>
+          <button class="filter" type="button" data-filter="旅行">旅行</button>
+          <button class="filter" type="button" data-filter="城市">城市</button>
+          <button class="filter" type="button" data-filter="自然">自然</button>
+          <button class="filter" type="button" data-filter="日常">日常</button>
+        </div>
+      </section>
+
+      <section id="gallery" class="gallery" aria-label="照片墙">
+        <article class="photo-card tall" data-tags="旅行">
+          <button class="photo-button" type="button" aria-label="查看 雪山公路">
+            <img src="https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=900&q=80" alt="蜿蜒公路通向远处雪山">
+          </button>
+          <button class="edit-photo" type="button" disabled>示例</button>
+          <div class="photo-meta">
+            <h3>雪山公路</h3>
+            <p>旅行</p>
+          </div>
+        </article>
+
+        <article class="photo-card" data-tags="城市">
+          <button class="photo-button" type="button" aria-label="查看 雨后街角">
+            <img src="https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=900&q=80" alt="雨后街道旁的温暖灯光">
+          </button>
+          <button class="edit-photo" type="button" disabled>示例</button>
+          <div class="photo-meta">
+            <h3>雨后街角</h3>
+            <p>城市</p>
+          </div>
+        </article>
+
+        <article class="photo-card wide" data-tags="自然">
+          <button class="photo-button" type="button" aria-label="查看 海边黄昏">
+            <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80" alt="黄昏时分的海浪与沙滩">
+          </button>
+          <button class="edit-photo" type="button" disabled>示例</button>
+          <div class="photo-meta">
+            <h3>海边黄昏</h3>
+            <p>自然</p>
+          </div>
+        </article>
+
+        <article class="photo-card" data-tags="日常">
+          <button class="photo-button" type="button" aria-label="查看 窗边咖啡">
+            <img src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=900&q=80" alt="窗边桌面上的咖啡杯">
+          </button>
+          <button class="edit-photo" type="button" disabled>示例</button>
+          <div class="photo-meta">
+            <h3>窗边咖啡</h3>
+            <p>日常</p>
+          </div>
+        </article>
+
+        <article class="photo-card tall" data-tags="自然">
+          <button class="photo-button" type="button" aria-label="查看 林间雾气">
+            <img src="https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=900&q=80" alt="有雾气穿过的森林">
+          </button>
+          <button class="edit-photo" type="button" disabled>示例</button>
+          <div class="photo-meta">
+            <h3>林间雾气</h3>
+            <p>自然</p>
+          </div>
+        </article>
+
+        <article class="photo-card" data-tags="旅行">
+          <button class="photo-button" type="button" aria-label="查看 老城台阶">
+            <img src="https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?auto=format&fit=crop&w=900&q=80" alt="老城河道旁的房屋与台阶">
+          </button>
+          <button class="edit-photo" type="button" disabled>示例</button>
+          <div class="photo-meta">
+            <h3>老城台阶</h3>
+            <p>旅行</p>
+          </div>
+        </article>
+      </section>
+
+      <section id="about" class="about">
+        <div>
+          <p class="section-kicker">About</p>
+          <h2>一个可以持续整理的个人照片分享站。</h2>
+        </div>
+        <p>本地运行时，上传内容会保存在当前项目目录。部署到公网服务器后，别人访问同一个网址也能看到已保存的照片和标签。</p>
+      </section>
+    </main>
+
+    <input id="photo-upload" class="upload-input" type="file" accept="image/*" multiple>
+
+    <dialog class="lightbox" aria-label="照片预览">
+      <button class="lightbox-close" type="button" aria-label="关闭预览">×</button>
+      <button class="lightbox-nav lightbox-prev" type="button" aria-label="查看上一张照片">‹</button>
+      <img alt="">
+      <button class="lightbox-nav lightbox-next" type="button" aria-label="查看下一张照片">›</button>
+      <div class="lightbox-caption"></div>
+    </dialog>
+
+    <dialog class="editor" aria-label="编辑照片信息">
+      <form class="editor-form" method="dialog">
+        <div class="editor-head">
+          <div>
+            <p class="section-kicker">Edit</p>
+            <h2>编辑照片</h2>
+          </div>
+          <button class="icon-close" type="button" aria-label="关闭编辑">×</button>
+        </div>
+        <img class="editor-preview" alt="">
+        <label>
+          <span>照片名称</span>
+          <input id="photo-title" name="title" maxlength="80" required>
+        </label>
+        <label>
+          <span>分类标签</span>
+          <input id="photo-tags" name="tags" placeholder="例如：旅行, 海边, 家人" maxlength="160">
+        </label>
+        <p class="field-note">多个标签请用逗号、顿号或空格隔开。</p>
+        <div class="editor-actions">
+          <button class="button text-button" type="button" data-close-editor>取消</button>
+          <button class="button primary solid" type="submit">保存</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="script.js"></script>
+  </body>
+</html>

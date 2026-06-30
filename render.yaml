@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: photo-gallery
+    runtime: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: npm start
+    disk:
+      name: photo-uploads
+      mountPath: /opt/render/project/src/uploads
+      sizeGB: 1
