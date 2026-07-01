@@ -335,18 +335,15 @@ h2 {
   font-size: 13px;
 }
 
-.about p {
-  color: var(--muted);
-  font-size: 17px;
+.about {
+  display: block;
+  margin-top: 76px;
+  padding: 46px 0 78px;
+  border-top: 1px solid var(--line);
 }
 
-.about {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.8fr);
-  gap: 42px;
-  margin-top: 76px;
-  padding: 42px 0 76px;
-  border-top: 1px solid var(--line);
+.about h2 {
+  max-width: 720px;
 }
 
 .upload-input {
@@ -549,9 +546,6 @@ h2 {
     grid-auto-rows: 190px;
   }
 
-  .about > p {
-    margin-top: 24px;
-  }
 }
 
 @media (max-width: 620px) {

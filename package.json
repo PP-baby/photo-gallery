@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check script.js"
+    "check": "node --check server.js && node --check script.js && node --check scripts/migrate-to-render.js",
+    "migrate:render": "node scripts/migrate-to-render.js"
   }
 }
