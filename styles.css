@@ -343,7 +343,8 @@ h2 {
 }
 
 .about h2 {
-  max-width: 720px;
+  max-width: none;
+  white-space: nowrap;
 }
 
 .upload-input {
@@ -539,6 +540,10 @@ h2 {
   .controls {
     justify-content: flex-start;
     margin-top: 18px;
+  }
+
+  .about h2 {
+    white-space: normal;
   }
 
   .gallery {
