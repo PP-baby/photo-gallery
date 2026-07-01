@@ -15,16 +15,15 @@
 
 如果要让本地和 Render 线上同步同一套照片，有两种方式。
 
-推荐本地使用远程代理模式，`.env` 写：
+推荐本地直连 Supabase，速度更快。运行：
 
-```text
-REMOTE_API_BASE=https://observer-photo-gallery.onrender.com
-MAX_UPLOAD_MB=50
+```powershell
+npm run setup:local-supabase
 ```
 
-这样本地上传、编辑、读取照片都会转发到线上 Render，再由线上 Render 写入 Supabase。本地不用保存 Supabase 密钥。
+按提示粘贴 `service_role key`，脚本会自动写入 `.env`。
 
-也可以让本地直接连接 Supabase，复制 `.env.example` 为 `.env`，并填入：
+也可以手动写 `.env`：
 
 ```text
 SUPABASE_URL=你的 Supabase Project URL
@@ -32,6 +31,17 @@ SUPABASE_SERVICE_ROLE_KEY=你的 Supabase service_role key
 SUPABASE_BUCKET=photos
 MAX_UPLOAD_MB=50
 ```
+
+这样本地上传、编辑、读取照片都会直接访问 Supabase，速度比经过 Render 代理更快。
+
+如果不想在本地保存 Supabase 密钥，也可以使用远程代理模式，`.env` 写：
+
+```text
+REMOTE_API_BASE=https://observer-photo-gallery.onrender.com
+MAX_UPLOAD_MB=50
+```
+
+这种方式更安全，但本地上传会慢一些。
 
 `.env` 不会提交到 GitHub。
 
