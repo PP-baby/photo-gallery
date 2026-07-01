@@ -13,7 +13,18 @@
 
 ## 本地启动
 
-如果要让本地和 Render 线上同步同一套照片，请先复制 `.env.example` 为 `.env`，并填入 Supabase 配置：
+如果要让本地和 Render 线上同步同一套照片，有两种方式。
+
+推荐本地使用远程代理模式，`.env` 写：
+
+```text
+REMOTE_API_BASE=https://observer-photo-gallery.onrender.com
+MAX_UPLOAD_MB=50
+```
+
+这样本地上传、编辑、读取照片都会转发到线上 Render，再由线上 Render 写入 Supabase。本地不用保存 Supabase 密钥。
+
+也可以让本地直接连接 Supabase，复制 `.env.example` 为 `.env`，并填入：
 
 ```text
 SUPABASE_URL=你的 Supabase Project URL

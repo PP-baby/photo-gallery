@@ -16,6 +16,8 @@ const supabaseUrl = String(process.env.SUPABASE_URL || "").replace(/\/+$/, "");
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const supabaseBucket = process.env.SUPABASE_BUCKET || "photos";
 const useSupabase = Boolean(supabaseUrl && supabaseKey && supabaseBucket);
+const remoteApiBase = String(process.env.REMOTE_API_BASE || "").replace(/\/+$/, "");
+const useRemoteProxy = Boolean(remoteApiBase && !useSupabase);
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -208,6 +210,31 @@ function sendJson(response, statusCode, body) {
 
 function sendError(response, statusCode, message) {
   sendJson(response, statusCode, { error: message });
+}
+
+async function proxyApiRequest(request, response, url) {
+  const headers = {};
+  const contentType = request.headers["content-type"];
+
+  if (contentType) {
+    headers["Content-Type"] = contentType;
+  }
+
+  const hasBody = !["GET", "HEAD"].includes(request.method);
+  const body = hasBody ? await collectRequest(request) : undefined;
+  const proxyResponse = await fetch(`${remoteApiBase}${url.pathname}${url.search}`, {
+    method: request.method,
+    headers,
+    body,
+  });
+  const proxyBody = Buffer.from(await proxyResponse.arrayBuffer());
+  const responseHeaders = {
+    "Content-Type": proxyResponse.headers.get("content-type") || "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+  };
+
+  response.writeHead(proxyResponse.status, responseHeaders);
+  response.end(proxyBody);
 }
 
 function getUrl(requestUrl) {
@@ -447,6 +474,11 @@ const server = http.createServer(async (request, response) => {
     const url = getUrl(request.url);
     const photoMatch = url.pathname.match(/^\/api\/photos\/([^/]+)$/);
 
+    if (useRemoteProxy && url.pathname.startsWith("/api/photos")) {
+      await proxyApiRequest(request, response, url);
+      return;
+    }
+
     if (request.method === "GET" && url.pathname === "/api/photos") {
       sendJson(response, 200, { photos: await readPhotos(), storage: useSupabase ? "supabase" : "local" });
       return;
@@ -476,7 +508,7 @@ const server = http.createServer(async (request, response) => {
 ensureStorage().then(() => {
   server.listen(port, () => {
     console.log(`照片网站已启动：http://localhost:${port}`);
-    console.log(`当前存储模式：${useSupabase ? "Supabase" : "本地 uploads"}`);
+    console.log(`当前存储模式：${useSupabase ? "Supabase" : useRemoteProxy ? "远程 Render 代理" : "本地 uploads"}`);
     console.log("按 Ctrl+C 可以停止服务。");
   });
 });
