@@ -1,4 +1,5 @@
 const http = require("node:http");
+const fsSync = require("node:fs");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const crypto = require("node:crypto");
@@ -8,6 +9,13 @@ const uploadDir = path.join(rootDir, "uploads");
 const dataFile = path.join(uploadDir, "photos.json");
 const port = Number(process.env.PORT || 3000);
 const maxUploadBytes = Number(process.env.MAX_UPLOAD_MB || 50) * 1024 * 1024;
+
+loadDotEnv();
+
+const supabaseUrl = String(process.env.SUPABASE_URL || "").replace(/\/+$/, "");
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const supabaseBucket = process.env.SUPABASE_BUCKET || "photos";
+const useSupabase = Boolean(supabaseUrl && supabaseKey && supabaseBucket);
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -37,6 +45,26 @@ const imageExtensions = {
   "image/heif": ".heif",
 };
 
+function loadDotEnv() {
+  const envPath = path.join(rootDir, ".env");
+  if (!fsSync.existsSync(envPath)) return;
+
+  const lines = fsSync.readFileSync(envPath, "utf8").split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+
+    const equalsIndex = trimmed.indexOf("=");
+    if (equalsIndex === -1) continue;
+
+    const key = trimmed.slice(0, equalsIndex).trim();
+    const value = trimmed.slice(equalsIndex + 1).trim().replace(/^["']|["']$/g, "");
+    if (key && process.env[key] === undefined) {
+      process.env[key] = value;
+    }
+  }
+}
+
 function normalizeTags(value) {
   const source = Array.isArray(value) ? value.join(",") : String(value || "");
   const tags = source
@@ -56,6 +84,42 @@ function normalizePhoto(photo) {
   };
 }
 
+function toClientPhoto(row) {
+  return normalizePhoto({
+    id: row.id,
+    title: row.title,
+    tags: row.tags || [],
+    src: row.src,
+    storagePath: row.storage_path,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  });
+}
+
+function supabaseHeaders(extra = {}) {
+  return {
+    apikey: supabaseKey,
+    Authorization: `Bearer ${supabaseKey}`,
+    ...extra,
+  };
+}
+
+async function supabaseRequest(pathname, options = {}) {
+  const response = await fetch(`${supabaseUrl}${pathname}`, {
+    ...options,
+    headers: supabaseHeaders(options.headers || {}),
+  });
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+
+  if (!response.ok) {
+    const message = data?.message || data?.error_description || data?.error || text || "Supabase request failed.";
+    throw new Error(message);
+  }
+
+  return data;
+}
+
 async function ensureStorage() {
   await fs.mkdir(uploadDir, { recursive: true });
   try {
@@ -65,15 +129,73 @@ async function ensureStorage() {
   }
 }
 
-async function readPhotos() {
+async function readLocalPhotos() {
   await ensureStorage();
   const raw = await fs.readFile(dataFile, "utf8");
   const photos = JSON.parse(raw || "[]");
   return photos.map(normalizePhoto);
 }
 
-async function writePhotos(photos) {
+async function writeLocalPhotos(photos) {
   await fs.writeFile(dataFile, `${JSON.stringify(photos.map(normalizePhoto), null, 2)}\n`, "utf8");
+}
+
+async function readPhotos() {
+  if (!useSupabase) {
+    return readLocalPhotos();
+  }
+
+  const rows = await supabaseRequest("/rest/v1/photos?select=*&order=created_at.desc");
+  return rows.map(toClientPhoto);
+}
+
+async function insertSupabasePhoto({ id, title, tags, src, storagePath }) {
+  const rows = await supabaseRequest("/rest/v1/photos", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+    },
+    body: JSON.stringify({
+      id,
+      title,
+      tags,
+      src,
+      storage_path: storagePath,
+    }),
+  });
+
+  return toClientPhoto(rows[0]);
+}
+
+async function updateSupabasePhoto(id, payload) {
+  const rows = await supabaseRequest(`/rest/v1/photos?id=eq.${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!rows[0]) {
+    throw new Error("Photo not found.");
+  }
+
+  return toClientPhoto(rows[0]);
+}
+
+async function uploadSupabaseObject({ storagePath, fileType, body }) {
+  await supabaseRequest(`/storage/v1/object/${encodeURIComponent(supabaseBucket)}/${storagePath}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": fileType,
+      "x-upsert": "false",
+    },
+    body,
+  });
+
+  return `${supabaseUrl}/storage/v1/object/public/${encodeURIComponent(supabaseBucket)}/${storagePath}`;
 }
 
 function sendJson(response, statusCode, body) {
@@ -177,6 +299,49 @@ function getDispositionValue(headers, name) {
   return match ? match[1] : "";
 }
 
+async function saveUploadedPart(part) {
+  const originalName = getDispositionValue(part.headers, "filename");
+  const fileType = getHeaderValue(part.headers, "content-type").toLowerCase();
+  const extension = imageExtensions[fileType];
+
+  if (!originalName || !extension) {
+    return null;
+  }
+
+  const id = crypto.randomUUID();
+  const filename = `${id}${extension}`;
+  const title = path.parse(originalName).name || "我的照片";
+  const tags = ["日常"];
+
+  if (useSupabase) {
+    const storagePath = `${id}${extension}`;
+    const src = await uploadSupabaseObject({
+      storagePath,
+      fileType,
+      body: part.body,
+    });
+
+    return insertSupabasePhoto({
+      id,
+      title,
+      tags,
+      src,
+      storagePath,
+    });
+  }
+
+  const photo = normalizePhoto({
+    id,
+    title,
+    tags,
+    src: `/uploads/${filename}`,
+    createdAt: new Date().toISOString(),
+  });
+
+  await fs.writeFile(path.join(uploadDir, filename), part.body);
+  return photo;
+}
+
 async function handleUpload(request, response) {
   const contentType = request.headers["content-type"] || "";
   if (!contentType.includes("multipart/form-data")) {
@@ -191,27 +356,12 @@ async function handleUpload(request, response) {
 
     for (const part of parts) {
       const fieldName = getDispositionValue(part.headers, "name");
-      const originalName = getDispositionValue(part.headers, "filename");
-      const fileType = getHeaderValue(part.headers, "content-type").toLowerCase();
+      if (fieldName !== "photos") continue;
 
-      if (fieldName !== "photos" || !originalName || !imageExtensions[fileType]) {
-        continue;
+      const photo = await saveUploadedPart(part);
+      if (photo) {
+        uploaded.push(photo);
       }
-
-      const id = crypto.randomUUID();
-      const extension = imageExtensions[fileType];
-      const filename = `${id}${extension}`;
-      const title = path.parse(originalName).name || "我的照片";
-      const photo = normalizePhoto({
-        id,
-        title,
-        tags: ["日常"],
-        src: `/uploads/${filename}`,
-        createdAt: new Date().toISOString(),
-      });
-
-      await fs.writeFile(path.join(uploadDir, filename), part.body);
-      uploaded.push(photo);
     }
 
     if (uploaded.length === 0) {
@@ -219,9 +369,11 @@ async function handleUpload(request, response) {
       return;
     }
 
-    const photos = await readPhotos();
-    const nextPhotos = [...uploaded, ...photos];
-    await writePhotos(nextPhotos);
+    if (!useSupabase) {
+      const photos = await readLocalPhotos();
+      await writeLocalPhotos([...uploaded, ...photos]);
+    }
+
     sendJson(response, 201, { photos: uploaded });
   } catch (error) {
     sendError(response, 400, error.message || "上传失败。");
@@ -231,17 +383,27 @@ async function handleUpload(request, response) {
 async function handleUpdate(request, response, id) {
   try {
     const payload = await readJsonBody(request);
-    const photos = await readPhotos();
+    const title = String(payload.title || "").trim().slice(0, 80);
+
+    if (!title) {
+      sendError(response, 400, "照片名称不能为空。");
+      return;
+    }
+
+    if (useSupabase) {
+      const photo = await updateSupabasePhoto(id, {
+        title,
+        tags: normalizeTags(payload.tags),
+      });
+      sendJson(response, 200, { photo });
+      return;
+    }
+
+    const photos = await readLocalPhotos();
     const index = photos.findIndex((photo) => photo.id === id);
 
     if (index === -1) {
       sendError(response, 404, "没有找到这张照片。");
-      return;
-    }
-
-    const title = String(payload.title || "").trim().slice(0, 80);
-    if (!title) {
-      sendError(response, 400, "照片名称不能为空。");
       return;
     }
 
@@ -252,10 +414,10 @@ async function handleUpdate(request, response, id) {
       updatedAt: new Date().toISOString(),
     });
 
-    await writePhotos(photos);
+    await writeLocalPhotos(photos);
     sendJson(response, 200, { photo: photos[index] });
-  } catch {
-    sendError(response, 400, "保存失败，请检查输入内容。");
+  } catch (error) {
+    sendError(response, 400, error.message || "保存失败，请检查输入内容。");
   }
 }
 
@@ -281,35 +443,40 @@ async function serveStatic(request, response) {
 }
 
 const server = http.createServer(async (request, response) => {
-  const url = getUrl(request.url);
-  const photoMatch = url.pathname.match(/^\/api\/photos\/([^/]+)$/);
+  try {
+    const url = getUrl(request.url);
+    const photoMatch = url.pathname.match(/^\/api\/photos\/([^/]+)$/);
 
-  if (request.method === "GET" && url.pathname === "/api/photos") {
-    sendJson(response, 200, { photos: await readPhotos() });
-    return;
+    if (request.method === "GET" && url.pathname === "/api/photos") {
+      sendJson(response, 200, { photos: await readPhotos(), storage: useSupabase ? "supabase" : "local" });
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/photos") {
+      await handleUpload(request, response);
+      return;
+    }
+
+    if (request.method === "PUT" && photoMatch) {
+      await handleUpdate(request, response, decodeURIComponent(photoMatch[1]));
+      return;
+    }
+
+    if (request.method === "GET" || request.method === "HEAD") {
+      await serveStatic(request, response);
+      return;
+    }
+
+    sendError(response, 405, "Method not allowed");
+  } catch (error) {
+    sendError(response, 500, error.message || "Server error.");
   }
-
-  if (request.method === "POST" && url.pathname === "/api/photos") {
-    await handleUpload(request, response);
-    return;
-  }
-
-  if (request.method === "PUT" && photoMatch) {
-    await handleUpdate(request, response, decodeURIComponent(photoMatch[1]));
-    return;
-  }
-
-  if (request.method === "GET" || request.method === "HEAD") {
-    await serveStatic(request, response);
-    return;
-  }
-
-  sendError(response, 405, "Method not allowed");
 });
 
 ensureStorage().then(() => {
   server.listen(port, () => {
     console.log(`照片网站已启动：http://localhost:${port}`);
+    console.log(`当前存储模式：${useSupabase ? "Supabase" : "本地 uploads"}`);
     console.log("按 Ctrl+C 可以停止服务。");
   });
 });

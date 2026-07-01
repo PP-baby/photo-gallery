@@ -13,6 +13,17 @@
 
 ## 本地启动
 
+如果要让本地和 Render 线上同步同一套照片，请先复制 `.env.example` 为 `.env`，并填入 Supabase 配置：
+
+```text
+SUPABASE_URL=你的 Supabase Project URL
+SUPABASE_SERVICE_ROLE_KEY=你的 Supabase service_role key
+SUPABASE_BUCKET=photos
+MAX_UPLOAD_MB=50
+```
+
+`.env` 不会提交到 GitHub。
+
 ```powershell
 cd C:\Users\DELL\Documents\网站搭建
 npm start
@@ -26,7 +37,7 @@ http://localhost:3000
 
 ## 本地保存位置
 
-上传后的图片会保存到：
+如果没有配置 Supabase，上传后的图片会保存到：
 
 ```text
 uploads
@@ -37,6 +48,18 @@ uploads
 ```text
 uploads/photos.json
 ```
+
+如果配置了 Supabase，本地和线上都会读写同一个 Supabase Storage bucket 和 `public.photos` 数据表，`uploads` 只作为旧版本地数据备份。
+
+## 迁移本地旧照片到 Supabase
+
+部署 Supabase 版本后，可以把本地 `uploads` 里的旧照片上传到当前网站后端：
+
+```powershell
+npm run migrate:remote -- https://observer-photo-gallery.onrender.com
+```
+
+这条命令会读取本地 `uploads/photos.json`，把旧照片上传到线上。线上已经切换到 Supabase 后，这些照片会进入 Supabase，而不是 Render 临时磁盘。
 
 ## Render 部署
 
@@ -87,20 +110,19 @@ Start Command: npm start
 
 服务创建完成后，Render 会给你一个 `onrender.com` 免费访问地址。
 
-### 3. 关于持久磁盘
+### 3. 关于 Supabase 存储
 
-这个项目包含 `render.yaml`，里面配置了 1GB 持久磁盘：
+现在推荐使用 Supabase 保存照片和标签。Render 只负责运行网站代码，不再依赖 Render 临时磁盘或持久磁盘。
 
-```yaml
-disk:
-  name: photo-uploads
-  mountPath: /opt/render/project/src/uploads
-  sizeGB: 1
+Render 需要配置这些环境变量：
+
+```text
+SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_BUCKET
 ```
 
-这样上传的照片和 `photos.json` 会保存在 Render 的持久磁盘里。
-
-注意：Render 的持久磁盘和可挂载磁盘的 Web Service 属于付费能力。如果你只想先免费测试域名和页面，可以先不使用持久磁盘，但上传的照片可能会在重启或重新部署后丢失。
+配置完成后，本地和线上都会使用同一个云端照片库。
 
 ## 整理照片
 
