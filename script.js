@@ -1,6 +1,7 @@
 const gallery = document.querySelector(".gallery");
 const controls = document.querySelector(".controls");
 const uploadInput = document.querySelector("#photo-upload");
+const uploadStatus = document.querySelector(".upload-status");
 const lightbox = document.querySelector(".lightbox");
 const lightboxImage = lightbox.querySelector("img");
 const lightboxCaption = lightbox.querySelector(".lightbox-caption");
@@ -32,6 +33,12 @@ function uniqueTags(tags) {
 
 function tagsToText(tags) {
   return uniqueTags(tags).join("、") || "未分类";
+}
+
+function setUploadStatus(message, type = "") {
+  if (!uploadStatus) return;
+  uploadStatus.textContent = message;
+  uploadStatus.className = type ? `upload-status ${type}` : "upload-status";
 }
 
 function getCardTags(card) {
@@ -234,29 +241,7 @@ uploadInput.addEventListener("change", (event) => {
   if (files.length === 0) return;
 
   if (canUseServer) {
-    const formData = new FormData();
-    files.forEach((file) => formData.append("photos", file));
-
-    fetch("/api/photos", {
-      method: "POST",
-      body: formData,
-    })
-      .then(async (response) => {
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error || "上传失败，请确认服务正在运行。");
-        }
-        return data;
-      })
-      .then((data) => {
-        data.photos.forEach((photo, index) => {
-          gallery.prepend(createPhotoCard(photo, index % 3 === 0 ? "wide" : ""));
-        });
-        refreshTagFilters();
-      })
-      .catch((error) => {
-        alert(error.message);
-      });
+    uploadFiles(files);
   } else {
     files.forEach((file, index) => {
       const photo = {
@@ -271,6 +256,49 @@ uploadInput.addEventListener("change", (event) => {
 
   uploadInput.value = "";
 });
+
+async function uploadFiles(files) {
+  const uploadedPhotos = [];
+  const failedFiles = [];
+
+  uploadInput.disabled = true;
+
+  for (const [index, file] of files.entries()) {
+    setUploadStatus(`正在上传 ${index + 1}/${files.length}：${file.name}`);
+
+    try {
+      const formData = new FormData();
+      formData.append("photos", file);
+
+      const response = await fetch("/api/photos", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "上传失败，请确认服务正在运行。");
+      }
+
+      uploadedPhotos.push(...data.photos);
+      data.photos.forEach((photo, photoIndex) => {
+        gallery.prepend(createPhotoCard(photo, (index + photoIndex) % 3 === 0 ? "wide" : ""));
+      });
+      refreshTagFilters();
+    } catch (error) {
+      failedFiles.push(`${file.name}：${error.message}`);
+    }
+  }
+
+  uploadInput.disabled = false;
+
+  if (failedFiles.length > 0) {
+    setUploadStatus(`已上传 ${uploadedPhotos.length} 张，失败 ${failedFiles.length} 张。${failedFiles.join("；")}`, "error");
+    return;
+  }
+
+  setUploadStatus(`上传完成：${uploadedPhotos.length} 张照片`, "success");
+}
 
 editorForm.addEventListener("submit", (event) => {
   event.preventDefault();

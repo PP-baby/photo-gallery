@@ -7,7 +7,7 @@ const rootDir = __dirname;
 const uploadDir = path.join(rootDir, "uploads");
 const dataFile = path.join(uploadDir, "photos.json");
 const port = Number(process.env.PORT || 3000);
-const maxUploadBytes = 25 * 1024 * 1024;
+const maxUploadBytes = Number(process.env.MAX_UPLOAD_MB || 50) * 1024 * 1024;
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -20,15 +20,21 @@ const mimeTypes = {
   ".gif": "image/gif",
   ".webp": "image/webp",
   ".avif": "image/avif",
+  ".heic": "image/heic",
+  ".heif": "image/heif",
   ".svg": "image/svg+xml",
 };
 
 const imageExtensions = {
   "image/jpeg": ".jpg",
+  "image/pjpeg": ".jpg",
   "image/png": ".png",
+  "image/x-png": ".png",
   "image/gif": ".gif",
   "image/webp": ".webp",
   "image/avif": ".avif",
+  "image/heic": ".heic",
+  "image/heif": ".heif",
 };
 
 function normalizeTags(value) {
@@ -107,7 +113,7 @@ function collectRequest(request, limit = maxUploadBytes) {
     request.on("data", (chunk) => {
       total += chunk.length;
       if (total > limit) {
-        reject(new Error("内容太大了，请上传 25MB 以内的图片。"));
+        reject(new Error(`内容太大了，请上传 ${Math.round(maxUploadBytes / 1024 / 1024)}MB 以内的图片。`));
         request.destroy();
         return;
       }
